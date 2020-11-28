@@ -144,7 +144,7 @@ static int update_config(struct clk_rcg2 *rcg)
 	}
 
 	WARN(1, "clk: %s: rcg didn't update its configuration.", name);
-	return 0;
+	return -EBUSY;
 }
 
 static int clk_rcg2_set_parent(struct clk_hw *hw, u8 index)
@@ -344,9 +344,14 @@ static int _freq_tbl_determine_rate(struct clk_hw *hw, const struct freq_tbl *f,
 
 	clk_flags = clk_hw_get_flags(hw);
 	p = clk_hw_get_parent_by_index(hw, index);
+	if (!p)
+		return -EINVAL;
+
 	if (clk_flags & CLK_SET_RATE_PARENT) {
 		rate = f->freq;
 		if (f->pre_div) {
+			if (!rate)
+				rate = req->rate;
 			rate /= 2;
 			rate *= f->pre_div + 1;
 		}
@@ -1453,8 +1458,11 @@ static int clk_gfx3d_src_set_rate_and_parent(struct clk_hw *hw,
 {
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
 	const struct freq_tbl *f;
-	u32 cfg;
+	u32 cfg, old_cfg;
 	int ret;
+
+	/* Read back the old configuration */
+	regmap_read(rcg->clkr.regmap, rcg->cmd_rcgr + CFG_REG, &old_cfg);
 
 	cfg = rcg->parent_map[index].cfg << CFG_SRC_SEL_SHIFT;
 
@@ -1473,6 +1481,8 @@ static int clk_gfx3d_src_set_rate_and_parent(struct clk_hw *hw,
 }
 
 const struct clk_ops clk_gfx3d_src_ops = {
+	.enable = clk_rcg2_enable,
+	.disable = clk_rcg2_disable,
 	.is_enabled = clk_rcg2_is_enabled,
 	.get_parent = clk_rcg2_get_parent,
 	.set_parent = clk_rcg2_set_parent,
@@ -1480,6 +1490,8 @@ const struct clk_ops clk_gfx3d_src_ops = {
 	.set_rate = clk_gfx3d_set_rate,
 	.set_rate_and_parent = clk_gfx3d_src_set_rate_and_parent,
 	.determine_rate = clk_gfx3d_src_determine_rate,
+	.list_rate = clk_rcg2_list_rate,
+	.list_registers = clk_rcg2_list_registers,
 };
 EXPORT_SYMBOL_GPL(clk_gfx3d_src_ops);
 
