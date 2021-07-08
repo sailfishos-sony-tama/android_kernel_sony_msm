@@ -60,11 +60,11 @@ static void try_to_suspend(struct work_struct *work)
 	 * Add extra wait in this case.
 	 */
 	if (error || final_count == initial_count)
-		schedule_timeout_uninterruptible(msecs_to_jiffies(250));
+		schedule_timeout_uninterruptible(msecs_to_jiffies(100));
 
  out:
 	/* always add timeout to prevent tight loop of suspend and waking up */
-	schedule_timeout_uninterruptible(msecs_to_jiffies(250));
+	schedule_timeout_uninterruptible(msecs_to_jiffies(50));
 	queue_up_suspend_work();
 }
 
